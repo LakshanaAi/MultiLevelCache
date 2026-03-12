@@ -1,108 +1,108 @@
 import java.util.*;
 
 /**
- * UseCase1NetflixCacheSystem
- * Simulates a 3-level cache system (L1, L2, L3) for video streaming.
+ * UseCase3DatabaseQueryCacheSystem
+ * Simulates caching of database query results to reduce database load.
  */
 
-class Video {
-    String videoId;
-    String data;
+class QueryResult {
+    String query;
+    String result;
 
-    public Video(String videoId, String data) {
-        this.videoId = videoId;
-        this.data = data;
+    public QueryResult(String query, String result) {
+        this.query = query;
+        this.result = result;
     }
 }
 
 public class MultiLevelCache {
 
-    // L1 Cache (fast memory cache)
-    private LinkedHashMap<String, Video> L1;
+    // L1 Cache (in-memory fast cache)
+    private LinkedHashMap<String, QueryResult> L1Cache;
 
-    // L2 Cache (SSD cache simulation)
-    private LinkedHashMap<String, Video> L2;
+    // L2 Cache (secondary cache)
+    private LinkedHashMap<String, QueryResult> L2Cache;
 
-    // L3 Database (all videos)
-    private HashMap<String, Video> database = new HashMap<>();
+    // L3 Database
+    private HashMap<String, QueryResult> database = new HashMap<>();
 
     int l1Hits = 0;
     int l2Hits = 0;
-    int l3Hits = 0;
+    int dbHits = 0;
 
     public MultiLevelCache() {
 
-        // L1 cache with LRU eviction
-        L1 = new LinkedHashMap<String, Video>(10000, 0.75f, true) {
-            protected boolean removeEldestEntry(Map.Entry<String, Video> eldest) {
+        // L1 cache with LRU
+        L1Cache = new LinkedHashMap<String, QueryResult>(1000, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry<String, QueryResult> eldest) {
+                return size() > 1000;
+            }
+        };
+
+        // L2 cache with LRU
+        L2Cache = new LinkedHashMap<String, QueryResult>(10000, 0.75f, true) {
+            protected boolean removeEldestEntry(Map.Entry<String, QueryResult> eldest) {
                 return size() > 10000;
             }
         };
-
-        // L2 cache with LRU eviction
-        L2 = new LinkedHashMap<String, Video>(100000, 0.75f, true) {
-            protected boolean removeEldestEntry(Map.Entry<String, Video> eldest) {
-                return size() > 100000;
-            }
-        };
     }
 
-    // get video from cache system
-    public Video getVideo(String videoId) {
+    // get query result
+    public QueryResult getQueryResult(String query) {
 
         // L1 Cache
-        if (L1.containsKey(videoId)) {
+        if (L1Cache.containsKey(query)) {
             l1Hits++;
             System.out.println("L1 Cache HIT");
-            return L1.get(videoId);
+            return L1Cache.get(query);
         }
 
         // L2 Cache
-        if (L2.containsKey(videoId)) {
+        if (L2Cache.containsKey(query)) {
             l2Hits++;
             System.out.println("L1 MISS → L2 Cache HIT");
 
-            Video video = L2.get(videoId);
+            QueryResult result = L2Cache.get(query);
 
             // promote to L1
-            L1.put(videoId, video);
+            L1Cache.put(query, result);
 
-            return video;
+            return result;
         }
 
-        // L3 Database
-        if (database.containsKey(videoId)) {
-            l3Hits++;
-            System.out.println("L1 MISS → L2 MISS → L3 Database HIT");
+        // Database
+        if (database.containsKey(query)) {
+            dbHits++;
+            System.out.println("L1 MISS → L2 MISS → Database HIT");
 
-            Video video = database.get(videoId);
+            QueryResult result = database.get(query);
 
-            // add to L2
-            L2.put(videoId, video);
+            // store in L2
+            L2Cache.put(query, result);
 
-            return video;
+            return result;
         }
 
-        System.out.println("Video not found.");
+        System.out.println("Query not found in database.");
         return null;
     }
 
-    // add video to database
-    public void addVideo(Video video) {
-        database.put(video.videoId, video);
+    // add query result to database
+    public void addQuery(String query, String result) {
+        database.put(query, new QueryResult(query, result));
     }
 
-    // statistics
+    // cache statistics
     public void getStatistics() {
 
-        int total = l1Hits + l2Hits + l3Hits;
+        int total = l1Hits + l2Hits + dbHits;
 
         System.out.println("\nCache Statistics:");
 
         if (total > 0) {
             System.out.println("L1 Hit Rate: " + (l1Hits * 100 / total) + "%");
             System.out.println("L2 Hit Rate: " + (l2Hits * 100 / total) + "%");
-            System.out.println("L3 Hit Rate: " + (l3Hits * 100 / total) + "%");
+            System.out.println("Database Hit Rate: " + (dbHits * 100 / total) + "%");
         }
     }
 
@@ -110,14 +110,14 @@ public class MultiLevelCache {
 
         MultiLevelCache cache = new MultiLevelCache();
 
-        // add videos to database
-        cache.addVideo(new Video("video_123", "Movie A"));
-        cache.addVideo(new Video("video_456", "Movie B"));
-        cache.addVideo(new Video("video_999", "Movie C"));
+        // simulate database entries
+        cache.addQuery("SELECT * FROM users", "User Data");
+        cache.addQuery("SELECT * FROM orders", "Order Data");
+        cache.addQuery("SELECT * FROM products", "Product Data");
 
-        cache.getVideo("video_123"); // DB → L2
-        cache.getVideo("video_123"); // L1 hit
-        cache.getVideo("video_999"); // DB → L2
+        cache.getQueryResult("SELECT * FROM users");   // DB → L2
+        cache.getQueryResult("SELECT * FROM users");   // L1 hit
+        cache.getQueryResult("SELECT * FROM orders");  // DB → L2
 
         cache.getStatistics();
     }
